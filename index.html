@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Geography Exam — MCQ with Timer</title>
+
+<!-- jsPDF (for PDF exports) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+:root{
+  --bg:#071024; --card:#0f1724; --muted:#9ca3af; --text:#e6eef8;
+  --accent:#22c55e; --danger:#ef4444; --accent-2:#a78bfa;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,var(--bg),#071826);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.container{max-width:980px;margin:18px auto;padding:12px}
+.card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.04);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.header{display:flex;align-items:center;gap:12px}
+.h1{font-size:1.2rem;margin:0}
+.muted{color:var(--muted);font-size:.95rem}
+.grid{display:grid;gap:10px}
+.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+label{font-size:.9rem;color:var(--muted)}
+input,textarea,select,button{font:inherit}
+input,textarea,select{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.06);background:transparent;color:var(--text);outline:none}
+textarea{min-height:86px}
+.row{display:flex;gap:10px;align-items:center}
+button{padding:10px 12px;border-radius:10px;border:0;background:var(--accent);color:#04140a;font-weight:700;cursor:pointer}
+button.secondary{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,.06);padding:8px 10px}
+button.danger{background:var(--danger);color:#fff}
+.pill{display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.03);font-size:.85rem}
+.hidden{display:none}
+.admin-icon{position:fixed;right:14px;top:14px;width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.03);display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid rgba(255,255,255,.04);font-size:18px;z-index:200}
+.qcard{padding:12px;border-radius:10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.03)}
+.list{display:grid;gap:8px;margin-top:8px}
+.list-item{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,.02)}
+footer.site-foot{text-align:center;padding:12px;color:var(--muted);margin-top:auto}
+.option{display:block;text-align:left;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:transparent;margin:8px 0;cursor:pointer}
+.option.selected{background:rgba(255,255,255,0.06)}
+.timer-bar {height:10px;border-radius:8px;background:rgba(255,255,255,0.04);overflow:hidden;margin-top:10px}
+.timer-fill {height:100%;width:100%;background:linear-gradient(90deg,var(--accent) , var(--accent-2));transition:width 0.25s linear}
+.timer-text{margin-left:auto;font-variant-numeric:tabular-nums}
+@media (max-width:600px){ .grid-2{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="admin-icon" id="adminIcon" title="Admin settings">⚙</div>
+
+<div class="container">
+  <!-- LOGIN -->
+  <div class="card" id="screen-login">
+    <div class="header"><div class="h1">Geography Exam — MCQ (Timer enabled)</div></div>
+    <p class="muted">Enter your <b>Name</b> and an <b>Admin-issued ID</b>. No roll number. IDs are single-use unless admin re-approves.</p>
+
+    <div class="grid grid-2" style="margin-top:12px">
+      <div>
+        <label>Student Name</label>
+        <input id="in-name" placeholder="e.g., Pathik Bhunia"/>
+      </div>
+      <div>
+        <label>Student ID</label>
+        <input id="in-id" placeholder="e.g., EXAM-2025-01"/>
+      </div>
+      <div>
+        <label>Exam Code (optional)</label>
+        <input id="in-code" placeholder="(optional)"/>
+      </div>
+      <div>
+        <div class="qcard muted">Admin manages questions, per-question time and IDs from the settings icon (⚙).</div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <button id="btn-start">Start Exam</button>
+      <span class="pill">Questions: <span id="label-qcount">—</span></span>
+      <div style="margin-left:auto" class="muted">Admin: ⚙</div>
+    </div>
+    <div id="login-msg" class="muted" style="margin-top:10px"></div>
+  </div>
+
+  <!-- EXAM -->
+  <div class="card hidden" id="screen-exam" style="margin-top:14px">
+    <div class="row" style="align-items:center">
+      <h3 style="margin:0">Exam in progress</h3>
+      <span class="pill">Q <span id="q-idx">1</span>/<span id="q-total">0</span></span>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <div class="muted">Time left</div>
+        <div class="timer-text" id="timer-text">00</div>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+    <div id="q-wrap" class="qcard"></div>
+
+    <div class="timer-bar" aria-hidden="true"><div id="timer-fill" class="timer-fill" style="width:100%"></div></div>
+
+    <div class="row" style="margin-top:10px">
+      <button id="btn-next">Next</button>
+      <button id="btn-submit-exam" class="secondary" style="margin-left:auto">Submit Exam</button>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="card hidden" id="screen-result" style="margin-top:14px">
+    <h3 style="margin:0">Result</h3>
+    <p class="muted">Summary</p>
+
+    <div class="grid grid-2">
+      <div class="qcard">
+        <div><b>Name:</b> <span id="r-name"></span></div>
+        <div><b>ID:</b> <span id="r-id"></span></div>
+        <div><b>Score:</b> <span id="r-score"></span> / <span id="r-total"></span> (<span id="r-percent"></span>%)</div>
+        <div><b>Duration:</b> <span id="r-duration"></span></div>
+      </div>
+      <div class="qcard">
+        <div><b>Started:</b> <span id="r-start"></span></div>
+        <div><b>Finished:</b> <span id="r-end"></span></div>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+    <div class="row">
+      <button id="btn-download-my-pdf" class="secondary">Download my PDF</button>
+      <button id="btn-finish" class="secondary" style="margin-left:auto">Finish</button>
+    </div>
+
+    <div style="height:10px"></div>
+    <h4 style="margin:6px 0">Answers</h4>
+    <div id="r-answers" class="list"></div>
+  </div>
+
+  <!-- ADMIN -->
+  <div class="card hidden" id="screen-admin" style="margin-top:14px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <h3 style="margin:0">Admin Panel</h3>
+      <div style="margin-left:auto" class="muted">Password protected</div>
+    </div>
+
+    <div id="admin-auth" style="margin-top:10px">
+      <label class="muted">Admin Password</label>
+      <div class="row" style="margin-top:6px">
+        <input id="admin-pass" type="password" placeholder="password"/>
+        <button id="admin-login" class="secondary">Login</button>
+      </div>
+      <div class="muted" style="margin-top:8px">Default: <b>admin123</b> — change after first login.</div>
+    </div>
+
+    <div id="admin-content" class="hidden" style="margin-top:12px">
+      <h4>Settings</h4>
+      <div class="grid grid-2">
+        <div>
+          <label class="muted">Time per question (seconds)</label>
+          <input id="set-qtime" type="number" min="5" step="5" value="30"/>
+        </div>
+        <div>
+          <label class="muted">Change admin password</label>
+          <div class="row">
+            <input id="set-pass" placeholder="new password"/>
+            <button id="btn-pass" class="secondary">Update</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+      <h4>Add / Edit Question (4 options)</h4>
+      <div class="qcard">
+        <label class="muted">Question text</label>
+        <textarea id="q-text" placeholder="Question text..."></textarea>
+
+        <div class="grid" style="margin-top:8px">
+          <div><label class="muted">Option 1</label><input id="opt1" placeholder="Option 1"/></div>
+          <div><label class="muted">Option 2</label><input id="opt2" placeholder="Option 2"/></div>
+          <div><label class="muted">Option 3</label><input id="opt3" placeholder="Option 3"/></div>
+          <div><label class="muted">Option 4</label><input id="opt4" placeholder="Option 4"/></div>
+        </div>
+
+        <label class="muted" style="margin-top:8px">Correct option (1-4)</label>
+        <input id="opt-correct" type="number" min="1" max="4" placeholder="e.g., 2"/>
+
+        <div class="row" style="margin-top:8px">
+          <button id="btn-add-q">Add Question</button>
+          <button id="btn-clear-q" class="secondary">Clear</button>
+          <div class="muted" style="margin-left:auto">MCQ, one correct option</div>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+      <table style="width:100%;border-collapse:separate;border-spacing:0 8px">
+        <thead><tr><th style="width:36px">#</th><th>Question</th><th>Correct</th><th style="width:180px">Actions</th></tr></thead>
+        <tbody id="tbl-qs"></tbody>
+      </table>
+
+      <div style="height:12px"></div>
+      <h4>Approved IDs (single-use)</h4>
+      <div class="row">
+        <input id="new-id" placeholder="e.g., EXAM-2025-01"/>
+        <button id="btn-add-id" class="secondary">Add ID</button>
+      </div>
+      <div id="allowed-ids" class="list" style="margin-top:8px"></div>
+
+      <div style="height:12px"></div>
+      <h4>Used IDs</h4>
+      <div id="used-ids" class="list"></div>
+      <div class="muted" style="margin-top:6px;font-size:0.9rem">"Re-approve" allows that ID one more attempt.</div>
+
+      <div style="height:12px"></div>
+      <h4>Ban / Unban</h4>
+      <div class="grid grid-2">
+        <div>
+          <label class="muted">Ban by Name or ID</label>
+          <div class="row">
+            <input id="ban-input" placeholder="EXAM-2025-01 or 'Ravi Kumar'"/>
+            <button id="btn-ban" class="danger">Ban</button>
+          </div>
+        </div>
+        <div>
+          <label class="muted">Banned list</label>
+          <div id="ban-list" class="list"></div>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+      <div class="row">
+        <button id="btn-export" class="secondary">Download CSV (All)</button>
+        <button id="btn-export-pdf" class="secondary">Download PDF (All)</button>
+        <button id="btn-reset" class="danger">Erase ALL results</button>
+        <button id="btn-hide-admin" class="secondary" style="margin-left:auto">Hide Admin</button>
+      </div>
+
+      <div style="height:12px"></div>
+      <h4>Stored Attempts</h4>
+      <div id="results-list" class="list"></div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-foot">Made by Pathik💀 &nbsp;&nbsp; All copyrights Reserved 2025</footer>
+
+<script>
+/* ---------- storage keys & helpers ---------- */
+const KEYS = {
+  QUESTIONS: 'mcq_questions',
+  SETTINGS: 'mcq_settings',
+  RESULTS: 'mcq_results',
+  BANS: 'mcq_bans',
+  ALLOWED_IDS: 'mcq_allowed_ids',
+  USED_IDS: 'mcq_used_ids'
+};
+function hash(s){ let h=0; for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i); h|=0;} return (h>>>0).toString(16); }
+function uuid(){ return (crypto && crypto.randomUUID)? crypto.randomUUID() : 'id_'+Math.random().toString(36).slice(2,9); }
+const $ = s => document.querySelector(s);
+function load(k,d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d }catch(e){ return d } }
+function save(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+
+/* ---------- defaults ---------- */
+const defaults = {
+  settings: { qtime: 30, passHash: hash('admin123') },
+  questions: [
+    {id:uuid(), text:'Which gas evolves when zinc reacts with dilute acid?', opts:['Oxygen','Hydrogen','Nitrogen','Carbon dioxide'], correct:2},
+    {id:uuid(), text:'Which is the functional group of alcohols?', opts:['-OH','-COOH','-NH2','-CHO'], correct:1}
+  ]
+};
+/* initialize storage if missing */
+if(!load(KEYS.SETTINGS)) save(KEYS.SETTINGS, defaults.settings);
+if(!load(KEYS.QUESTIONS)) save(KEYS.QUESTIONS, defaults.questions);
+if(!load(KEYS.RESULTS)) save(KEYS.RESULTS, []);
+if(!load(KEYS.BANS)) save(KEYS.BANS, []);
+if(!load(KEYS.ALLOWED_IDS)) save(KEYS.ALLOWED_IDS, []);
+if(!load(KEYS.USED_IDS)) save(KEYS.USED_IDS, []);
+
+/* ---------- state ---------- */
+let QUESTIONS = load(KEYS.QUESTIONS, defaults.questions);
+let SETTINGS  = load(KEYS.SETTINGS, defaults.settings);
+let RESULTS   = load(KEYS.RESULTS, []);
+let BANS      = load(KEYS.BANS, []);
+let ALLOWED_IDS = load(KEYS.ALLOWED_IDS, []);
+let USED_IDS  = load(KEYS.USED_IDS, []);
+let currentTimer = null;
+let timeLeft = 0;
+
+/* ---------- UI init ---------- */
+function refreshLoginInfo(){ $('#label-qcount').textContent = QUESTIONS.length; $('#set-qtime').value = SETTINGS.qtime || 30; }
+refreshLoginInfo();
+
+/* ---------- admin open ---------- */
+$('#adminIcon').addEventListener('click', ()=>{ $('#screen-admin').classList.remove('hidden'); window.scrollTo({top:0,behavior:'smooth'}); });
+
+/* ---------- admin auth ---------- */
+$('#admin-login').addEventListener('click', ()=> {
+  const p = $('#admin-pass').value || '';
+  if(hash(p) === SETTINGS.passHash){
+    $('#admin-auth').classList.add('hidden'); $('#admin-content').classList.remove('hidden'); $('#admin-pass').value=''; renderAdmin(); alert('Admin logged in');
+  } else alert('Incorrect password');
+});
+
+/* ---------- admin rendering ---------- */
+function renderAdmin(){
+  $('#set-qtime').value = SETTINGS.qtime || 30;
+  renderQuestionsTable(); renderAllowedIds(); renderUsedIds(); renderBans(); renderResultsList();
+}
+
+/* ---------- questions CRUD ---------- */
+let editIdx = -1;
+function renderQuestionsTable(){
+  const tb = $('#tbl-qs'); tb.innerHTML = '';
+  if(QUESTIONS.length===0){ tb.innerHTML = '<tr><td colspan="4" class="muted">No questions</td></tr>'; return; }
+  QUESTIONS.forEach((q,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${i+1}</td><td>${escapeHtml(q.text)}</td><td>Option ${q.correct}</td><td></td>`;
+    const td = tr.lastChild;
+    const ed = document.createElement('button'); ed.className='secondary'; ed.textContent='Edit';
+    ed.onclick = ()=> {
+      $('#q-text').value = q.text;
+      $('#opt1').value = q.opts[0] || '';
+      $('#opt2').value = q.opts[1] || '';
+      $('#opt3').value = q.opts[2] || '';
+      $('#opt4').value = q.opts[3] || '';
+      $('#opt-correct').value = q.correct;
+      editIdx = i; $('#btn-add-q').textContent = 'Save';
+      window.scrollTo({top:0,behavior:'smooth'});
+    };
+    const del = document.createElement('button'); del.className='danger'; del.style.marginLeft='8px'; del.textContent='Delete';
+    del.onclick = ()=> { if(confirm('Delete this question?')){ QUESTIONS.splice(i,1); save(KEYS.QUESTIONS,QUESTIONS); renderAdmin(); refreshLoginInfo(); } };
+    td.appendChild(ed); td.appendChild(del); tb.appendChild(tr);
+  });
+}
+
+$('#btn-add-q').addEventListener('click', ()=>{
+  const text = $('#q-text').value.trim();
+  const o1 = $('#opt1').value.trim();
+  const o2 = $('#opt2').value.trim();
+  const o3 = $('#opt3').value.trim();
+  const o4 = $('#opt4').value.trim();
+  const correct = Number($('#opt-correct').value);
+  if(!text || !o1 || !o2 || !o3 || !o4 || ![1,2,3,4].includes(correct)){ alert('Enter question, four options and correct option (1-4).'); return; }
+  if(editIdx>=0){
+    QUESTIONS[editIdx].text = text;
+    QUESTIONS[editIdx].opts = [o1,o2,o3,o4];
+    QUESTIONS[editIdx].correct = correct;
+    editIdx = -1; $('#btn-add-q').textContent = 'Add Question';
+  } else {
+    QUESTIONS.push({ id: uuid(), text, opts:[o1,o2,o3,o4], correct });
+  }
+  save(KEYS.QUESTIONS,QUESTIONS); renderAdmin(); refreshLoginInfo();
+  $('#q-text').value=''; $('#opt1').value=''; $('#opt2').value=''; $('#opt3').value=''; $('#opt4').value=''; $('#opt-correct').value='';
+});
+$('#btn-clear-q').addEventListener('click', ()=>{ editIdx=-1; $('#btn-add-q').textContent='Add Question'; $('#q-text').value=''; $('#opt1').value=''; $('#opt2').value=''; $('#opt3').value=''; $('#opt4').value=''; $('#opt-correct').value=''; });
+
+/* ---------- Approved IDs ---------- */
+function renderAllowedIds(){
+  const el = $('#allowed-ids'); el.innerHTML = '';
+  if(ALLOWED_IDS.length===0){ el.innerHTML = '<div class="muted">No approved IDs</div>'; return; }
+  ALLOWED_IDS.forEach((id, idx)=>{
+    const used = USED_IDS.includes(id);
+    const d = document.createElement('div'); d.className='list-item';
+    d.innerHTML = `<div><div style="font-weight:600">${escapeHtml(id)}</div><div class="muted">${used? 'USED':'Available'}</div></div>`;
+    const btns = document.createElement('div');
+    const rem = document.createElement('button'); rem.className='secondary'; rem.textContent='Remove';
+    rem.onclick = ()=>{ if(confirm('Remove this ID?')){ ALLOWED_IDS.splice(idx,1); save(KEYS.ALLOWED_IDS,ALLOWED_IDS); renderAllowedIds(); } };
+    btns.appendChild(rem); d.appendChild(btns); el.appendChild(d);
+  });
+}
+$('#btn-add-id').addEventListener('click', ()=> {
+  const v = $('#new-id').value.trim();
+  if(!v) return alert('Enter ID');
+  if(ALLOWED_IDS.includes(v)) return alert('ID already exists');
+  ALLOWED_IDS.push(v); save(KEYS.ALLOWED_IDS, ALLOWED_IDS); $('#new-id').value=''; renderAllowedIds(); alert('ID added');
+});
+
+/* ---------- Used IDs (re-approve) ---------- */
+function renderUsedIds(){
+  const el = $('#used-ids'); el.innerHTML = '';
+  if(USED_IDS.length===0){ el.innerHTML = '<div class="muted">No used IDs</div>'; return; }
+  USED_IDS.forEach((id, idx)=>{
+    const d = document.createElement('div'); d.className='list-item';
+    d.innerHTML = `<div><div style="font-weight:600">${escapeHtml(id)}</div><div class="muted">Used</div></div>`;
+    const btns = document.createElement('div');
+    const re = document.createElement('button'); re.className='secondary'; re.textContent='Re-approve';
+    re.onclick = ()=> { if(confirm('Allow this ID to be used again?')){ USED_IDS.splice(idx,1); save(KEYS.USED_IDS,USED_IDS); renderUsedIds(); renderAllowedIds(); alert('ID re-approved for one more use'); } };
+    const rem = document.createElement('button'); rem.className='danger'; rem.style.marginLeft='8px'; rem.textContent='Remove';
+    rem.onclick = ()=> { if(confirm('Remove used ID permanently?')){ ALLOWED_IDS = ALLOWED_IDS.filter(x=>x!==id); USED_IDS = USED_IDS.filter(x=>x!==id); save(KEYS.ALLOWED_IDS, ALLOWED_IDS); save(KEYS.USED_IDS, USED_IDS); renderUsedIds(); renderAllowedIds(); } };
+    btns.appendChild(re); btns.appendChild(rem); d.appendChild(btns); el.appendChild(d);
+  });
+}
+
+/* ---------- Bans ---------- */
+function renderBans(){ const el = $('#ban-list'); el.innerHTML=''; if(BANS.length===0){ el.innerHTML = '<div class="muted">No banned</div>'; return; } BANS.forEach((b,i)=>{ const div=document.createElement('div'); div.className='list-item'; const left=document.createElement('div'); left.textContent = b; const btn=document.createElement('button'); btn.className='secondary'; btn.textContent='Unban'; btn.onclick=()=>{ BANS=BANS.filter(x=>x!==b); save(KEYS.BANS,BANS); renderBans(); }; div.appendChild(left); div.appendChild(btn); el.appendChild(div); }) }
+$('#btn-ban').addEventListener('click', ()=>{ const v = $('#ban-input').value.trim(); if(!v) return; if(!BANS.includes(v)){ BANS.push(v); save(KEYS.BANS,BANS); renderBans(); $('#ban-input').value=''; } });
+
+/* ---------- exam flow & timer ---------- */
+function isBanned(name,id){ const keyid=(id||'').trim().toLowerCase(), nm=(name||'').trim().toLowerCase(); return BANS.some(x=>x.toLowerCase()===keyid || x.toLowerCase()===nm); }
+
+$('#btn-start').addEventListener('click', ()=> {
+  const name = $('#in-name').value.trim(), id = $('#in-id').value.trim();
+  $('#login-msg').textContent = '';
+  if(!name||!id){ $('#login-msg').textContent='Enter Name and ID.'; return; }
+  if(isBanned(name,id)){ $('#login-msg').innerHTML = `<span style="color:var(--danger)"><b>Access denied:</b> You are banned.</span>`; return; }
+  if(!ALLOWED_IDS.includes(id)){ $('#login-msg').textContent='This ID is not approved.'; return; }
+  if(USED_IDS.includes(id)){ $('#login-msg').textContent='This ID has already been used.'; return; }
+  startExam(name,id);
+});
+
+let session = null;
+let currentIdx = 0;
+let selected = null;
+let answers = [];
+let startTime = null;
+
+function startExam(name,id){
+  session = { name, id, startedAt: new Date().toISOString() };
+  currentIdx = 0; selected = null; answers = []; startTime = Date.now();
+  $('#screen-login').classList.add('hidden'); $('#screen-result').classList.add('hidden'); $('#screen-exam').classList.remove('hidden');
+  $('#q-total').textContent = QUESTIONS.length;
+  renderQuestion();
+  startPerQuestionTimer();
+}
+
+function renderQuestion(){
+  $('#q-idx').textContent = currentIdx+1;
+  const q = QUESTIONS[currentIdx];
+  const wrap = $('#q-wrap');
+  wrap.innerHTML = `<div style="font-weight:700;margin-bottom:8px">${escapeHtml(q.text)}</div>`;
+  q.opts.forEach((opt,i)=>{
+    const btn = document.createElement('div');
+    btn.className = 'option';
+    btn.innerText = opt;
+    btn.dataset.idx = i+1;
+    btn.onclick = ()=> {
+      $$('#q-wrap .option').forEach(el => el.classList.remove('selected'));
+      btn.classList.add('selected');
+      selected = Number(btn.dataset.idx);
+    };
+    wrap.appendChild(btn);
+  });
+  // reset selected visually
+  selected = null;
+  $$('#q-wrap .option').forEach(el => el.classList.remove('selected'));
+  // update timer fill initial state
+  updateTimerUI();
+}
+
+function $$(sel){ return Array.from(document.querySelectorAll(sel)); }
+
+/* Timer logic */
+function startPerQuestionTimer(){
+  clearPerQuestionTimer();
+  const perQ = Number(SETTINGS.qtime) || 30;
+  timeLeft = perQ;
+  updateTimerUI();
+  currentTimer = setInterval(()=>{
+    timeLeft--;
+    updateTimerUI();
+    if(timeLeft <= 0){
+      // auto submit current question (record selection or blank) and advance or finish
+      handleTimeoutAdvance();
+    }
+  }, 1000);
+}
+function clearPerQuestionTimer(){
+  if(currentTimer) { clearInterval(currentTimer); currentTimer = null; }
+}
+function updateTimerUI(){
+  const perQ = Number(SETTINGS.qtime) || 30;
+  const pct = Math.max(0, Math.min(1, timeLeft / perQ));
+  $('#timer-text').textContent = String(timeLeft).padStart(2,'0') + 's';
+  $('#timer-fill').style.width = Math.round(pct*100) + '%';
+}
+
+/* handle timeout: record and advance/finish */
+function handleTimeoutAdvance(){
+  // record current selection or blank
+  const q = QUESTIONS[currentIdx];
+  const isCorrect = (selected !== null && selected === q.correct);
+  answers.push({ qid:q.id, qtext:q.text, selected, correct: isCorrect, reason:'timeout' });
+  // move on
+  selected = null;
+  currentIdx++;
+  if(currentIdx >= QUESTIONS.length){
+    // finish
+    clearPerQuestionTimer();
+    finishExam();
+  } else {
+    renderQuestion();
+    // restart timer for next question
+    startPerQuestionTimer();
+  }
+}
+
+/* Next button behavior: record and advance */
+$('#btn-next').addEventListener('click', ()=>{
+  if(selected===null){
+    alert('Please select an option (or wait for timer to auto-advance).');
+    return;
+  }
+  const q = QUESTIONS[currentIdx];
+  const isCorrect = (selected === q.correct);
+  answers.push({ qid:q.id, qtext:q.text, selected, correct: isCorrect, reason:'answered' });
+  selected = null;
+  currentIdx++;
+  if(currentIdx >= QUESTIONS.length){
+    clearPerQuestionTimer();
+    finishExam();
+  } else {
+    renderQuestion();
+    startPerQuestionTimer();
+  }
+});
+
+/* Submit exam early: record current selection (if any) and mark remaining blanks */
+$('#btn-submit-exam').addEventListener('click', ()=>{
+  // record current selection if any
+  if(selected !== null){
+    const q = QUESTIONS[currentIdx];
+    const isCorrect = (selected === q.correct);
+    answers.push({ qid:q.id, qtext:q.text, selected, correct: isCorrect, reason:'answered' });
+  } else {
+    // push current question as blank
+    const q = QUESTIONS[currentIdx];
+    answers.push({ qid:q.id, qtext:q.text, selected: null, correct:false, reason:'submitted_blank' });
+  }
+  // fill blanks for remaining questions
+  for(let i = answers.length; i < QUESTIONS.length; i++){
+    const q = QUESTIONS[answers.length];
+    answers.push({ qid:q.id, qtext:q.text, selected: null, correct:false, reason:'not_answered' });
+  }
+  clearPerQuestionTimer();
+  finishExam();
+});
+
+/* finish exam: save result and show summary */
+function finishExam(){
+  const endTime = new Date().toISOString();
+  const total = QUESTIONS.length;
+  const score = answers.filter(a=>a.correct).length;
+  const percent = Math.round((score/total)*100);
+  const durationSec = Math.round((Date.now() - startTime)/1000);
+  const rec = { ...session, finishedAt:endTime, durationSec, score, total, percent, answers };
+  RESULTS.push(rec); save(KEYS.RESULTS,RESULTS);
+  if(!USED_IDS.includes(session.id)){ USED_IDS.push(session.id); save(KEYS.USED_IDS, USED_IDS); }
+  // show result
+  $('#r-name').textContent = rec.name; $('#r-id').textContent = rec.id;
+  $('#r-score').textContent = rec.score; $('#r-total').textContent = rec.total; $('#r-percent').textContent = rec.percent;
+  $('#r-duration').textContent = Math.floor(rec.durationSec/60)+'m '+(rec.durationSec%60)+'s';
+  $('#r-start').textContent = new Date(rec.startedAt).toLocaleString(); $('#r-end').textContent = new Date(rec.finishedAt).toLocaleString();
+  const list = $('#r-answers'); list.innerHTML='';
+  rec.answers.forEach((a,i)=>{
+    const div = document.createElement('div'); div.className='list-item';
+    const left = document.createElement('div');
+    left.innerHTML = `<div><b>Q${i+1}:</b> ${escapeHtml(a.qtext)}</div>
+      <div class="muted">Selected: ${a.selected===null? '(blank)': 'Option '+a.selected} — ${a.correct? '✅ Correct':'❌ Incorrect'} — ${a.reason || ''}</div>`;
+    div.appendChild(left);
+    list.appendChild(div);
+  });
+  $('#screen-exam').classList.add('hidden'); $('#screen-result').classList.remove('hidden');
+  renderResultsList(); renderAllowedIds(); renderUsedIds();
+}
+
+/* ---------- admin actions ---------- */
+$('#btn-pass').addEventListener('click', ()=>{
+  const p = $('#set-pass').value.trim(); if(!p){ alert('Enter new password'); return; }
+  SETTINGS.passHash = hash(p); save(KEYS.SETTINGS,SETTINGS); $('#set-pass').value=''; alert('Password updated');
+});
+$('#set-qtime').addEventListener('change', e=>{ const v = Math.max(5, Math.round(Number(e.target.value)||30)); SETTINGS.qtime = v; save(KEYS.SETTINGS,SETTINGS); refreshLoginInfo(); });
+
+/* ---------- exports: CSV & PDF ---------- */
+$('#btn-export').addEventListener('click', ()=> {
+  if(RESULTS.length===0){ alert('No results'); return; }
+  const headers=['name','id','score','total','percent','durationSec','startedAt','finishedAt','answers'];
+  const rows = RESULTS.map(r=>{
+    const answersText = r.answers.map(a=> `${a.qtext} :: ${a.selected===null? '': 'Option '+a.selected} :: ${a.correct?'1':'0'}`).join(' || ');
+    return [r.name,r.id,r.score,r.total,r.percent,r.durationSec,r.startedAt,r.finishedAt,answersText].map(cell=> `"${String(cell).replace(/"/g,'""')}"`).join(',');
+  });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='results.csv'; a.click();
+});
+
+/* ---------- PDF helpers (header/footer text exactly as requested) ---------- */
+function addHeaderFooterAll(doc){
+  const pageCount = doc.getNumberOfPages();
+  const pageW = doc.internal.pageSize.width;
+  const pageH = doc.internal.pageSize.height;
+  for(let p=1;p<=pageCount;p++){
+    doc.setPage(p);
+    doc.setFontSize(14);
+    doc.text('GEOGRAPHY EXAM RESULT BY AMIT SIR', pageW/2, 36, { align:'center' });
+    doc.setFontSize(10);
+    doc.text('MADE BY PATHIK', pageW/2, pageH - 28, { align:'center' });
+  }
+}
+
+/* Export all results as PDF */
+$('#btn-export-pdf').addEventListener('click', ()=>{
+  if(RESULTS.length===0){ alert('No results'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4' });
+  const left = 40, topStart = 70;
+  let y = topStart;
+  const pageH = doc.internal.pageSize.height;
+  doc.setFontSize(11);
+  RESULTS.forEach((r,i)=>{
+    doc.text(`${i+1}. ${r.name} — ID: ${r.id} — Score: ${r.score}/${r.total} (${r.percent}%)`, left, y); y += 18;
+    r.answers.forEach((a,ai)=>{
+      const line = `Q${ai+1}: ${truncate(a.qtext,70)} | Selected: ${a.selected===null?'(blank)':'Option '+a.selected} | ${a.correct? '✓':'✗'}`;
+      doc.setFontSize(9); doc.text(line, left+8, y); y += 14;
+      if(y > pageH - 80){ doc.addPage(); y = topStart; doc.setFontSize(11); }
+    });
+    y += 10;
+    if(y > pageH - 80){ doc.addPage(); y = topStart; doc.setFontSize(11); }
+  });
+  addHeaderFooterAll(doc);
+  doc.save('results.pdf');
+});
+
+/* Single-student PDF */
+function exportSinglePDF(rec){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4' });
+  let y = 70;
+  doc.setFontSize(12);
+  doc.text(`Name: ${rec.name}`, 40, y); y += 18;
+  doc.text(`ID: ${rec.id}`, 40, y); y += 18;
+  doc.text(`Score: ${rec.score} / ${rec.total} (${rec.percent}%)`, 40, y); y += 18;
+  doc.text(`Started: ${new Date(rec.startedAt).toLocaleString()}`, 40, y); y += 18;
+  doc.text(`Finished: ${new Date(rec.finishedAt).toLocaleString()}`, 40, y); y += 20;
+  doc.setFontSize(11);
+  rec.answers.forEach((a,i)=>{
+    doc.text(`${i+1}. Q: ${truncate(a.qtext,100)}`, 40, y); y += 14;
+    doc.text(`   Selected: ${a.selected===null? '(blank)': 'Option '+a.selected} — ${a.correct? 'Correct':'Incorrect'}`, 40, y); y += 16;
+    if(y > doc.internal.pageSize.height - 80){ doc.addPage(); y = 70; doc.setFontSize(11); }
+  });
+  addHeaderFooterAll(doc);
+  const filename = (rec.name||'student').replace(/\s+/g,'_') + '_result.pdf';
+  doc.save(filename);
+}
+
+/* Download my PDF (student) */
+$('#btn-download-my-pdf').addEventListener('click', ()=>{
+  const name = $('#r-name').textContent, id = $('#r-id').textContent;
+  const rec = RESULTS.slice().reverse().find(r => r.name === name && r.id === id);
+  if(!rec){ alert('Result not found'); return; }
+  exportSinglePDF(rec);
+});
+
+/* ---------- admin results list ---------- */
+function renderResultsList(){
+  const el = $('#results-list'); el.innerHTML = '';
+  if(RESULTS.length===0){ el.innerHTML = '<div class="muted">No attempts yet</div>'; return; }
+  RESULTS.slice().reverse().forEach((r,idxRev)=>{
+    const i = RESULTS.length-1-idxRev;
+    const row = document.createElement('div'); row.className='list-item';
+    const left = document.createElement('div'); left.innerHTML = `<div style="font-weight:700">${escapeHtml(r.name)}</div><div class="muted">${r.id} — ${r.score}/${r.total} (${r.percent}%)</div>`;
+    const controls = document.createElement('div');
+    const btnPdf = document.createElement('button'); btnPdf.className='secondary'; btnPdf.textContent='PDF'; btnPdf.onclick = ()=> exportSinglePDF(r);
+    const btnDel = document.createElement('button'); btnDel.className='danger'; btnDel.style.marginLeft='8px'; btnDel.textContent='Delete'; btnDel.onclick = ()=> { if(confirm('Delete this attempt?')){ RESULTS.splice(i,1); save(KEYS.RESULTS,RESULTS); renderResultsList(); } };
+    controls.appendChild(btnPdf); controls.appendChild(btnDel);
+    row.appendChild(left); row.appendChild(controls); el.appendChild(row);
+  });
+}
+
+/* ---------- used IDs rendering helpers ---------- */
+function renderUsedIds(){ const el=$('#used-ids'); el.innerHTML=''; if(USED_IDS.length===0){ el.innerHTML='<div class="muted">No used IDs</div>'; return; } USED_IDS.forEach((id,idx)=>{ const d=document.createElement('div'); d.className='list-item'; const left=document.createElement('div'); left.innerHTML=`<div style="font-weight:600">${escapeHtml(id)}</div><div class="muted">Used</div>`; const btns=document.createElement('div'); const re=document.createElement('button'); re.className='secondary'; re.textContent='Re-approve'; re.onclick=()=>{ if(confirm('Allow this ID to be used again?')){ USED_IDS.splice(idx,1); save(KEYS.USED_IDS,USED_IDS); renderUsedIds(); renderAllowedIds(); alert('ID re-approved'); } }; const rem=document.createElement('button'); rem.className='danger'; rem.style.marginLeft='8px'; rem.textContent='Remove'; rem.onclick=()=>{ if(confirm('Remove used ID?')){ ALLOWED_IDS = ALLOWED_IDS.filter(x=>x!==id); USED_IDS = USED_IDS.filter(x=>x!==id); save(KEYS.ALLOWED_IDS, ALLOWED_IDS); save(KEYS.USED_IDS, USED_IDS); renderUsedIds(); renderAllowedIds(); } }; btns.appendChild(re); btns.appendChild(rem); d.appendChild(left); d.appendChild(btns); el.appendChild(d); }); }
+
+/* ---------- other admin actions ---------- */
+$('#btn-hide-admin').addEventListener('click', ()=>{ $('#screen-admin').classList.add('hidden'); $('#admin-auth').classList.remove('hidden'); $('#admin-content').classList.add('hidden'); });
+
+$('#btn-reset').addEventListener('click', ()=>{ if(confirm('Erase ALL stored results and used IDs? This cannot be undone.')){ RESULTS=[]; save(KEYS.RESULTS,RESULTS); USED_IDS=[]; save(KEYS.USED_IDS, USED_IDS); alert('All results erased'); renderResultsList(); renderUsedIds(); renderAllowedIds(); } });
+
+/* ---------- utilities ---------- */
+function truncate(s,n){ if(!s) return ''; return s.length>n? s.slice(0,n-1)+'…':s; }
+function escapeHtml(s){ return (s||'').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+/* ---------- init ---------- */
+(function init(){
+  QUESTIONS = load(KEYS.QUESTIONS, defaults.questions);
+  SETTINGS  = load(KEYS.SETTINGS, defaults.settings);
+  RESULTS   = load(KEYS.RESULTS, []);
+  BANS      = load(KEYS.BANS, []);
+  ALLOWED_IDS = load(KEYS.ALLOWED_IDS, []);
+  USED_IDS  = load(KEYS.USED_IDS, []);
+  refreshLoginInfo();
+})();
+</script>
+</body>
+</html>
